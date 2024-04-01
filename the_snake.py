@@ -9,6 +9,7 @@ SCREEN_WIDTH, SCREEN_HEIGHT = 640, 480
 GRID_SIZE = 20
 GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
+SCREEN_CENTER = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
 
 UP = (0, -1)
 DOWN = (0, 1)
@@ -19,6 +20,7 @@ BOARD_BACKGROUND_COLOR = (0, 0, 0)
 BORDER_COLOR = (93, 216, 228)
 APPLE_COLOR = (255, 0, 0)
 SNAKE_COLOR = (0, 255, 0)
+STONE_COLOR = (128, 128, 128)
 
 SPEED = 7
 
@@ -34,13 +36,11 @@ class GameObject:
     координаты - центр экрана, цвет фона - цвет игрового поля.
     """
 
-    position: tuple = ((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))
-    body_color: tuple = BOARD_BACKGROUND_COLOR
-
-    def __init__(self) -> None:
+    def __init__(self, position=SCREEN_CENTER,
+                 body_color=BOARD_BACKGROUND_COLOR) -> None:
         """Инициализация объекта."""
-        self.position = GameObject.position
-        self.body_color = GameObject.body_color
+        self.position = position
+        self.body_color = body_color
 
     def draw(self):
         """Описывает отрисовку объекта, в дочерних классах
@@ -61,25 +61,21 @@ class Apple(GameObject):
     экземпляра положение определяется случайным образом.
     """
 
-    body_color: tuple = APPLE_COLOR
-    position: tuple = GameObject.position
-
-    def __init__(self) -> None:
+    def __init__(self, body_color=APPLE_COLOR) -> None:
         """Инициализация объекта."""
         super().__init__()
         self.position = self.randomize_position()
-        self.body_color = Apple.body_color
+        self.body_color = body_color
 
-    def randomize_position(self) -> tuple:
+    def randomize_position(self, snake_positions=[]) -> tuple:
         """Метод, возвращающий случайные координаты для
         изменения положения яблока на игровом поле.
         """
         random_position = (randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                            randint(0, GRID_HEIGHT - 1) * GRID_SIZE)
-        if random_position not in Snake.positions:
+        if random_position not in snake_positions:
             return random_position
-        else:
-            return self.randomize_position()
+        return self.randomize_position(snake_positions)
 
     def draw(self):
         """Метод отрисовки яблока на поле."""
@@ -91,12 +87,6 @@ class Snake(GameObject):
     начальная длина змейки, список координат сегментов, направление,
     следующее направление, цвет змейки.
     """
-
-    length: int = 1
-    positions: list = [((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))]
-    direction: tuple = RIGHT
-    next_direction = None
-    body_color: tuple = SNAKE_COLOR
 
     def __init__(self) -> None:
         """Инициализация объекта"""
@@ -136,9 +126,10 @@ class Snake(GameObject):
     def reset(self) -> None:
         """Сбрасывает положение змейки к исходному."""
         self.length = 1
-        self.body_color = Snake.body_color
-        self.positions = [((SCREEN_WIDTH // 2), (SCREEN_HEIGHT // 2))]
+        self.body_color = SNAKE_COLOR
+        self.positions = [SCREEN_CENTER]
         self.direction = choice([LEFT, RIGHT, UP, DOWN])
+        self.next_direction = None
         self.last = None
 
 
@@ -165,6 +156,8 @@ def main():
     """Основной цикл игры."""
     apple = Apple()
     snake = Snake()
+    # Создаем объект камня
+    stone = Apple(STONE_COLOR)
     screen.fill(BOARD_BACKGROUND_COLOR)
     while True:
         clock.tick(SPEED)
@@ -174,6 +167,7 @@ def main():
         snake.last = snake.positions[-1]
         apple.draw()
         snake.draw()
+        stone.draw()
         # Если яблоко не поймано, длина не увеличивается
         if len(snake.positions) > snake.length:
             snake.last = snake.positions.pop()
@@ -181,11 +175,14 @@ def main():
         # в другом месте
         if snake.get_head_position() == apple.position:
             snake.length += 1
-            apple.position = apple.randomize_position()
-        # Если змейка врезалась сама в себя, возврат на исходную
-        if snake.get_head_position() in snake.positions[2:]:
+            apple.position = apple.randomize_position(snake.positions)
+        # Если змейка врезалась сама в себя или в камень, возврат на исходную
+        if (snake.get_head_position() in snake.positions[2:]
+           or snake.get_head_position() == stone.position):
             snake.reset()
+            stone.position = apple.randomize_position(snake.positions)
             screen.fill(BOARD_BACKGROUND_COLOR)
+
         pygame.display.update()
 
 
